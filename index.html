@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Emotion & Eye Detector + SQL</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #a855f7;
+            --bg: #0f172a;
+            --text: #f8fafc;
+            --card-bg: #1e293b;
+            --accent: #22d3ee;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px;
+            width: 100%;
+            background: linear-gradient(to right, var(--card-bg), var(--bg));
+            border-bottom: 1px solid #334155;
+        }
+
+        h1 { margin: 0; font-size: 1.8rem; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; color: transparent; }
+        p { color: #94a3b8; margin-top: 5px; font-size: 0.9rem; }
+
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: var(--card-bg);
+            color: #94a3b8;
+            border: 2px solid #334155;
+        }
+
+        button.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+        }
+
+        button:hover:not(.active) {
+            background-color: #334155;
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            background-color: var(--card-bg);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .action-btn:hover {
+            background-color: rgba(34, 211, 238, 0.1);
+        }
+
+        .restart-btn {
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .restart-btn:hover {
+            background-color: rgba(34, 197, 94, 0.1);
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 95%;
+            max-width: 800px;
+            gap: 20px;
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #334155;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #00ff88;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            backdrop-filter: blur(4px);
+            z-index: 10;
+        }
+
+        .suggestion-card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            width: 100%;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #334155;
+            transition: transform 0.3s ease;
+        }
+
+        .suggestion-title {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .current-emotion {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--secondary);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Tips List Style */
+        .tips-list {
+            margin: 0;
+            padding-left: 20px;
+            color: #e2e8f0;
+        }
+        
+        .tips-list li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        /* SQL Section Styles */
+        .sql-section {
+            width: 100%;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #334155;
+            margin-bottom: 50px;
+        }
+
+        .sql-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        .sql-header h3 { margin: 0; color: var(--accent); }
+        .sql-status { font-size: 0.8rem; color: #94a3b8; }
+
+        .table-wrapper {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #334155;
+        }
+
+        th { color: var(--primary); }
+        tr:hover { background-color: #334155; }
+        
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 20;
+            color: white;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #334155;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+    <!-- Load face-api.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- Load SQL.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>AI Emotion Assistant</h1>
+        <p>Real-time Face, Eye & Data Analysis</p>
+    </header>
+
+    <div class="controls">
+        <button id="btn-face" class="active" onclick="setMode('face')">👤 Face Mode</button>
+        <button id="btn-eye" onclick="setMode('eye')">👁️ Eye Mode</button>
+        <div style="width: 20px;"></div> <!-- Spacer -->
+        <button class="action-btn" onclick="activateOneTimeDetect()">📸 One-time Detect</button>
+        <button class="restart-btn" onclick="restartCamera()">🔄 Restart Cam</button>
+    </div>
+
+    <div class="main-container">
+        
+        <div class="video-wrapper">
+            <div id="loading-overlay">
+                <div class="spinner"></div>
+                <span>Loading AI & Database...</span>
+            </div>
+            <div class="status-badge" id="status-text">Initializing...</div>
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="suggestion-card">
+            <div class="suggestion-title">Current Analysis</div>
+            <div class="current-emotion" id="emotion-label">Waiting for face...</div>
+            <ul class="tips-list" id="suggestion-list">
+                <li>Please allow camera access and position your face in the frame.</li>
+            </ul>
+        </div>
+
+        <!-- SQL Database Section -->
+        <div class="sql-section">
+            <div class="sql-header">
+                <h3>💾 SQLite Database History</h3>
+                <span class="sql-status" id="db-status">Database: Inactive</span>
+            </div>
+            <div class="table-wrapper">
+                <table id="log-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Time</th>
+                            <th>Emotion</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-body">
+                        <tr><td colspan="4" style="text-align:center; color:#666;">No data logged yet...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+    // --- Configuration & State ---
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const statusText = document.getElementById('status-text');
+    const emotionLabel = document.getElementById('emotion-label');
+    const suggestionList = document.getElementById('suggestion-list');
+    const dbStatus = document.getElementById('db-status');
+    const logBody = document.getElementById('log-body');
+    
+    // AI Model URL
+    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+
+    let currentMode = 'face'; 
+    let isModelLoaded = false;
+    let db = null; // SQLite DB instance
+    let lastLogTime = 0;
+    
+    // Detection Control
+    let detectionInterval;
+    let stopOnNextDetect = false;
+
+    // --- Suggestions Database (Expanded) ---
+    const suggestions = {
+        neutral: [
+            "You seem calm. A great time to focus on complex tasks.",
+            "Try a 2-minute deep breathing exercise to maintain this balance.",
+            "Hydrate! Drink a glass of water.",
+            "If you've been staring at the screen, take a 5-minute break.",
+            "Feeling drained? A 20-minute power nap might reset your energy.",
+            "Organize your workspace for better clarity."
+        ],
+        happy: [
+            "Great energy! Share this positivity with a friend.",
+            "Use this motivation to tackle your biggest goal for the day.",
+            "Keep smiling, it boosts your immune system!",
+            "Take a moment to simply enjoy this good mood.",
+            "Write down one thing you are grateful for right now."
+        ],
+        sad: [
+            "It's okay to feel low. Try listening to your favorite uplifting song.",
+            "Take a short walk outside to get some fresh air.",
+            "Call a friend or family member just to say hi.",
+            "You might be exhausted. Try taking a short sleep or nap.",
+            "Step away from your work and take a mental break.",
+            "Drink some warm tea or water."
+        ],
+        angry: [
+            "Take a step back. Count to 10 slowly.",
+            "Try to identify what triggered this feeling.",
+            "Physical movement helps. Do some quick stretches.",
+            "Stop what you are doing and take a break immediately.",
+            "Close your eyes and rest for a moment to reset.",
+            "Vent your frustration by writing it down, then tearing the paper."
+        ],
+        fearful: [
+            "Focus on your breathing. Inhale for 4s, hold for 4s, exhale for 4s.",
+            "Identify 5 things you can see and 4 things you can touch right now.",
+            "Remind yourself: 'I am safe in this moment.'",
+            "Take a break to drink some water and ground yourself.",
+            "Find a comfortable spot to sit and relax your shoulders."
+        ],
+        surprised: [
+            "Unexpected things happen! Take a moment to process.",
+            "Is this a good surprise? Enjoy the rush!",
+            "Take a deep breath to center yourself.",
+            "Check if this new information requires immediate action."
+        ],
+        disgusted: [
+            "Change your environment if something is bothering you.",
+            "Focus on something beautiful or pleasant nearby.",
+            "Get some fresh air.",
+            "Take a break and look at some nature photos."
+        ]
+    };
+
+    // --- Initialization ---
+
+    async function initApp() {
+        try {
+            statusText.innerText = "Loading AI & SQL...";
+            
+            // 1. Load SQLite
+            const sqlPromise = initSqlJs({
+                locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+            }).then(SQL => {
+                db = new SQL.Database();
+                db.run("CREATE TABLE mood_logs (id INTEGER PRIMARY KEY, emotion TEXT, confidence REAL, timestamp TEXT);");
+                dbStatus.innerText = "Database: Active (In-Memory)";
+                console.log("SQL Database Initialized");
+            });
+
+            // 2. Load Face API
+            const facePromise = Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+            ]);
+
+            await Promise.all([sqlPromise, facePromise]);
+            
+            isModelLoaded = true;
+            statusText.innerText = "Starting Camera...";
+            startVideo();
+        } catch (err) {
+            console.error("Initialization Error:", err);
+            statusText.innerText = "Error loading resources.";
+            loadingOverlay.innerHTML = "<span>Error loading. Please refresh.</span>";
+        }
+    }
+
+    function startVideo() {
+        navigator.mediaDevices.getUserMedia({ video: {} })
+            .then(stream => {
+                video.srcObject = stream;
+                statusText.innerText = "Active";
+            })
+            .catch(err => {
+                console.error(err);
+                statusText.innerText = "Camera Denied";
+                suggestionList.innerHTML = "<li>Please enable camera access to use this app.</li>";
+            });
+    }
+
+    // --- Control Functions ---
+
+    function activateOneTimeDetect() {
+        stopOnNextDetect = true;
+        statusText.innerText = "Waiting for face...";
+        statusText.style.color = "#f59e0b"; // Warning/Orange color
+        
+        // Ensure video is playing
+        if (video.paused) {
+            video.play();
+        }
+    }
+
+    function restartCamera() {
+        stopOnNextDetect = false;
+        if (video.paused) {
+            video.play();
+        }
+        statusText.innerText = "Active";
+        statusText.style.color = "#00ff88"; // Green color
+    }
+
+    // --- Main Loop ---
+
+    video.addEventListener('play', () => {
+        const displaySize = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
+        faceapi.matchDimensions(canvas, displaySize);
+        loadingOverlay.style.display = 'none';
+
+        // Clear existing interval if restarting
+        if (detectionInterval) clearInterval(detectionInterval);
+
+        detectionInterval = setInterval(async () => {
+            if (!isModelLoaded || video.paused) return;
+
+            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks()
+                .withFaceExpressions();
+
+            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (resizedDetections.length > 0) {
+                const detection = resizedDetections[0];
+                
+                if (currentMode === 'face') {
+                    faceapi.draw.drawDetections(canvas, resizedDetections);
+                    faceapi.draw.drawFaceExpressions(canvas, resizedDetections);
+                } else {
+                    drawEyeMode(ctx, detection);
+                }
+
+                processEmotionData(detection.expressions);
+
+                // ONE-TIME DETECT LOGIC
+                if (stopOnNextDetect) {
+                    video.pause(); // Freeze video
+                    clearInterval(detectionInterval); // Stop loop
+                    stopOnNextDetect = false;
+                    statusText.innerText = "Captured (Frozen)";
+                    statusText.style.color = "#22d3ee";
+                }
+
+            } else {
+                emotionLabel.innerText = "Searching...";
+            }
+
+        }, 100);
+    });
+
+    // --- Data Processing & SQL Logging ---
+
+    function processEmotionData(expressions) {
+        const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
+        if (sorted.length > 0) {
+            const topEmotion = sorted[0][0];
+            const probability = sorted[0][1];
+
+            if (probability > 0.4) {
+                // Update UI
+                updateUI(topEmotion, probability);
+
+                // Log to SQL every 5 seconds (ONLY if continuous mode)
+                const now = Date.now();
+                if (!stopOnNextDetect && now - lastLogTime > 5000) {
+                    logToDatabase(topEmotion, probability);
+                    lastLogTime = now;
+                }
+            }
+        }
+    }
+
+    function logToDatabase(emotion, confidence) {
+        if (!db) return;
+        
+        const timestamp = new Date().toLocaleTimeString();
+        const confPercent = (confidence * 100).toFixed(1);
+        
+        // INSERT statement
+        db.run(`INSERT INTO mood_logs (emotion, confidence, timestamp) VALUES ('${emotion}', ${confPercent}, '${timestamp}')`);
+        
+        // SELECT statement to update view
+        updateLogView();
+    }
+
+    function updateLogView() {
+        if (!db) return;
+        
+        // Get last 5 entries
+        const res = db.exec("SELECT * FROM mood_logs ORDER BY id DESC LIMIT 5");
+        
+        if (res.length > 0 && res[0].values) {
+            logBody.innerHTML = "";
+            res[0].values.forEach(row => {
+                const tr = document.createElement('tr');
+                // row is [id, emotion, confidence, timestamp]
+                tr.innerHTML = `
+                    <td>${row[0]}</td>
+                    <td>${row[3]}</td>
+                    <td style="font-weight:bold; color:var(--accent)">${row[1].toUpperCase()}</td>
+                    <td>${row[2]}%</td>
+                `;
+                logBody.appendChild(tr);
+            });
+        }
+    }
+
+    // --- UI Helpers ---
+
+    function updateUI(emotion, probability) {
+        const emojiMap = {
+            neutral: "😐", happy: "😄", sad: "😢", angry: "😠", 
+            fearful: "😨", disgusted: "🤢", surprised: "😲"
+        };
+        
+        emotionLabel.innerHTML = `${emojiMap[emotion] || ''} ${emotion.toUpperCase()} <span style="font-size:0.8rem; color:#666">(${(probability*100).toFixed(0)}%)</span>`;
+        
+        // Update suggestions if emotion changes or periodically (we check if list needs refresh)
+        // For simplicity, we stick to refreshing based on emotion state match, 
+        // but here we just grab 3 random tips every time to keep it dynamic, 
+        // or throttle it. Let's throttle tip updates to avoid flickering.
+        if (!window.lastTipEmotion || window.lastTipEmotion !== emotion || Date.now() - (window.lastTipTime || 0) > 8000) {
+            const tips = suggestions[emotion];
+            // Shuffle and pick 3
+            const shuffled = [...tips].sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, 3);
+            
+            suggestionList.innerHTML = selected.map(tip => `<li>${tip}</li>`).join('');
+            
+            window.lastTipEmotion = emotion;
+            window.lastTipTime = Date.now();
+        }
+    }
+
+    function drawEyeMode(ctx, detection) {
+        const landmarks = detection.landmarks;
+        const leftEye = landmarks.getLeftEye();
+        const rightEye = landmarks.getRightEye();
+
+        const drawEyeBox = (points) => {
+            const xs = points.map(p => p.x);
+            const ys = points.map(p => p.y);
+            const minX = Math.min(...xs) - 10;
+            const minY = Math.min(...ys) - 10;
+            const width = (Math.max(...xs) + 10) - minX;
+            const height = (Math.max(...ys) + 10) - minY;
+
+            ctx.strokeStyle = '#00ff88';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(minX, minY, width, height);
+            ctx.fillStyle = '#00ff88';
+            ctx.font = '12px Arial';
+            ctx.fillText('EYE TRACKING', minX, minY - 5);
+        };
+
+        drawEyeBox(leftEye);
+        drawEyeBox(rightEye);
+        
+        const box = detection.detection.box;
+        ctx.fillStyle = '#a855f7';
+        ctx.font = 'bold 20px Arial';
+        const sorted = Object.entries(detection.expressions).sort((a, b) => b[1] - a[1]);
+        ctx.fillText(`Emotion: ${sorted[0][0]}`, box.x, box.y - 20);
+    }
+
+    function setMode(mode) {
+        currentMode = mode;
+        document.getElementById('btn-face').className = mode === 'face' ? 'active' : '';
+        document.getElementById('btn-eye').className = mode === 'eye' ? 'active' : '';
+    }
+
+    // Start App
+    window.addEventListener('load', initApp);
+
+</script>
+</body>
+</html>
